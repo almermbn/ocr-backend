@@ -9,7 +9,10 @@ import { validateSync } from 'class-validator';
 import { PlayerBindingDto } from '../dto/player-binding.dto';
 
 @Injectable()
-export class PlayersJsonPipe implements PipeTransform<string, PlayerBindingDto[]> {
+export class PlayersJsonPipe implements PipeTransform<
+  string,
+  PlayerBindingDto[]
+> {
   transform(value: string): PlayerBindingDto[] {
     if (!value) {
       throw new BadRequestException('players is required');

@@ -7,11 +7,11 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { OcrReadRequestDto } from './dto/ocr-read-request.dto';
+import type { UploadedImage } from 'src/openai/types';
 import { OcrReadResponseDto } from './dto/ocr-read-response.dto';
 import { PlayerBindingDto } from './dto/player-binding.dto';
-import { PlayersJsonPipe } from './pipes/players-json.pipe';
 import { OcrService } from './ocr.service';
+import { PlayersJsonPipe } from './pipes/players-json.pipe';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -36,9 +36,8 @@ export class OcrController {
           fileIsRequired: true,
         }),
     )
-    image: Express.Multer.File,
+    image: UploadedImage,
     @Body('players', PlayersJsonPipe) players: PlayerBindingDto[],
-    @Body() _body: OcrReadRequestDto,
   ): Promise<OcrReadResponseDto> {
     return this.ocrService.read(image, players);
   }

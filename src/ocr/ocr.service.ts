@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { UploadedImage } from 'src/openai/types';
 import { OpenaiService } from '../openai/openai.service';
 import { OcrReadResponseDto } from './dto/ocr-read-response.dto';
 import { PlayerBindingDto } from './dto/player-binding.dto';
@@ -8,7 +9,7 @@ export class OcrService {
   constructor(private readonly openaiService: OpenaiService) {}
 
   async read(
-    image: Express.Multer.File,
+    image: UploadedImage,
     players: PlayerBindingDto[],
   ): Promise<OcrReadResponseDto> {
     const ocrResponse = await this.openaiService.readBowlingScores(
@@ -17,12 +18,18 @@ export class OcrService {
       players,
     );
 
-    const bindingsByLetter = new Map(players.map((player) => [player.letter, player]));
+    const bindingsByLetter = new Map(
+      players.map((player) => [player.letter, player]),
+    );
 
     const sanitizedPlayers = (ocrResponse.players ?? [])
-      .filter((player) => bindingsByLetter.has(player.letter as PlayerBindingDto['letter']))
+      .filter((player) =>
+        bindingsByLetter.has(player.letter as PlayerBindingDto['letter']),
+      )
       .map((player) => {
-        const binding = bindingsByLetter.get(player.letter as PlayerBindingDto['letter']);
+        const binding = bindingsByLetter.get(
+          player.letter as PlayerBindingDto['letter'],
+        );
 
         return {
           ...player,
@@ -33,7 +40,9 @@ export class OcrService {
       });
 
     for (const binding of players) {
-      const alreadyIncluded = sanitizedPlayers.some((player) => player.letter === binding.letter);
+      const alreadyIncluded = sanitizedPlayers.some(
+        (player) => player.letter === binding.letter,
+      );
 
       if (!alreadyIncluded) {
         sanitizedPlayers.push({

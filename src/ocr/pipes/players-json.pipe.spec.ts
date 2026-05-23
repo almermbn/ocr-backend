@@ -1,4 +1,7 @@
-import { BadRequestException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { PlayersJsonPipe } from './players-json.pipe';
 
 describe('PlayersJsonPipe', () => {
@@ -33,7 +36,11 @@ describe('PlayersJsonPipe', () => {
 
   it('throws unprocessable entity for invalid letter', () => {
     expect(() =>
-      pipe.transform(JSON.stringify([{ letter: 'X', playerId: 1, playerName: 'Almer Nakano' }])),
+      pipe.transform(
+        JSON.stringify([
+          { letter: 'X', playerId: 1, playerName: 'Almer Nakano' },
+        ]),
+      ),
     ).toThrow(UnprocessableEntityException);
   });
 });

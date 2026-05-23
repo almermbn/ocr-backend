@@ -5,8 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-import { PlayerBindingDto } from '../ocr/dto/player-binding.dto';
 import { OcrReadResponseDto } from '../ocr/dto/ocr-read-response.dto';
+import { PlayerBindingDto } from '../ocr/dto/player-binding.dto';
 
 @Injectable()
 export class OpenaiService {
@@ -17,11 +17,16 @@ export class OpenaiService {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
 
     if (!apiKey) {
-      throw new InternalServerErrorException('OPENAI_API_KEY is not configured');
+      throw new InternalServerErrorException(
+        'OPENAI_API_KEY is not configured',
+      );
     }
 
     this.client = new OpenAI({ apiKey });
-    this.model = this.configService.get<string>('OPENAI_VISION_MODEL', 'gpt-4.1-mini');
+    this.model = this.configService.get<string>(
+      'OPENAI_VISION_MODEL',
+      'gpt-4.1-mini',
+    );
   }
 
   async readBowlingScores(
@@ -55,13 +60,53 @@ export class OpenaiService {
                 text: [
                   'Tarefa:',
                   '- Extrair scores de boliche da imagem enviada.',
+                  '- A imagem pode ser uma súmula manuscrita/impressa OU uma foto de placar eletrônico.',
                   '- NÃO inferir nomes pela imagem.',
                   '- Usar apenas este mapeamento de letras A-H para vincular resultados:',
                   JSON.stringify(playersReference),
+
+                  'Regra para súmula:',
+                  '- Se for uma súmula, extraia as partidas 1ª até 6ª quando existirem.',
                   '- Para ambiguidades, sempre preencher candidates com alternativas.',
                   '- Definir needsReview=true quando houver rasura, baixa confiança ou dígito ambíguo.',
-                  '- Retornar JSON no formato:',
-                  '{"players":[{"letter":"A","playerId":1,"playerName":"Nome","scores":[{"game":1,"value":149,"candidates":[149,199],"needsReview":true,"reason":"dígito central ambíguo"}],"total":1001}]}',
+
+                  'Regra para placar eletrônico:',
+                  '- Se for uma foto de placar eletrônico, extraia apenas a letra do jogador e o total individual final exibido na mesma linha do jogador.',
+                  '- O total individual normalmente fica no extremo direito da própria linha do jogador.',
+                  '- NÃO use números grandes exibidos em caixas separadas abaixo, no rodapé ou fora da linha do jogador.',
+                  '- Ignore totais gerais do par de pistas, soma da equipe, série, subtotal ou placar agregado.',
+                  '- Exemplo: se D tem 157 na linha e há 278 em uma caixa inferior, o total de D é 157, não 278.',
+                  '- Para placar eletrônico, retorne scores como array vazio [].',
+                  '- Se houver dúvida entre total individual e total agregado, use o número alinhado horizontalmente com a letra do jogador e marque needsReview=true.',
+
+                  'Formato obrigatório de resposta:',
+                  '{',
+                  '  "players": [',
+                  '    {',
+                  '      "letter": "A",',
+                  '      "playerId": 1,',
+                  '      "playerName": "Nome",',
+                  '      "scores": [',
+                  '        {',
+                  '          "game": 1,',
+                  '          "value": 149,',
+                  '          "candidates": [149,199],',
+                  '          "needsReview": true,',
+                  '          "reason": "dígito central ambíguo"',
+                  '        }',
+                  '      ],',
+                  '      "total": 1001,',
+                  '      "totalCandidates": [1001],',
+                  '      "needsReview": false',
+                  '    }',
+                  '  ]',
+                  '}',
+
+                  'Regras finais:',
+                  '- Responda SOMENTE JSON válido.',
+                  '- Não inclua comentários, markdown ou explicações.',
+                  '- Nunca retorne jogadores que não estejam no mapeamento enviado.',
+                  '- Se uma letra do placar não existir no mapeamento, ignore essa letra.',
                 ].join('\n'),
               },
               {
@@ -83,11 +128,17 @@ export class OpenaiService {
 
       return JSON.parse(content) as OcrReadResponseDto;
     } catch (error) {
+      console.error('OPENAI OCR ERROR:', error);
+
       if (error instanceof BadGatewayException) {
         throw error;
       }
 
-      throw new BadGatewayException('Failed to process OCR with OpenAI');
+      throw new BadGatewayException(
+        error instanceof Error
+          ? error.message
+          : 'Failed to process OCR with OpenAI',
+      );
     }
   }
 }
