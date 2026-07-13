@@ -12,6 +12,8 @@ export class OcrPlayerResultDto {
   playerName!: string;
   scores!: OcrScoreDto[];
   total!: number;
+  totalCandidates!: number[];
+  needsReview!: boolean;
 }
 
 export class OcrReadResponseDto {

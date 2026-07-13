@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { OpenaiService } from '../openai/openai.service';
+import { PlayerLetter } from './dto/player-binding.dto';
 import { OcrService } from './ocr.service';
 
 describe('OcrService', () => {
@@ -43,7 +44,7 @@ describe('OcrService', () => {
       } as Express.Multer.File,
       [
         {
-          letter: 'A',
+          letter: PlayerLetter.A,
           playerId: 1,
           playerName: 'Almer Nakano',
         },
