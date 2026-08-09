@@ -46,4 +46,7 @@ export class PartidaJogador {
     cascade: true,
   })
   scores: PartidaJogadorScore[];
+
+  @Column({ name: 'numero_rodada', type: 'integer' })
+  numeroRodada: number;
 }

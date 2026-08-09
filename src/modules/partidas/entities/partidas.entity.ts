@@ -14,13 +14,17 @@ export class Partidas {
   @PrimaryGeneratedColumn({ name: 'id_partida' })
   idPartida: number;
 
-  @ManyToOne(() => Torneio, (torneio) => torneio.partidas)
+  @ManyToOne(() => Torneio, (torneio) => torneio.partidas, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn([{ name: 'id_torneio', referencedColumnName: 'idTorneio' }])
   torneio: Torneio;
 
   @Column('date', { name: 'data_partida' })
   dataPartida: Date;
 
-  @OneToMany(() => PartidaJogador, (partidaJogador) => partidaJogador.partida)
+  @OneToMany(() => PartidaJogador, (partidaJogador) => partidaJogador.partida, {
+    onDelete: 'CASCADE',
+  })
   jogadores: PartidaJogador[];
 }

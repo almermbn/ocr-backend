@@ -14,6 +14,7 @@ import { PartidasService } from './partidas.service';
       PartidaJogador,
       PartidaJogadorScore,
       Jogadores,
+      Partidas,
     ]),
   ],
   controllers: [PartidasController],

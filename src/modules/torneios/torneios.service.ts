@@ -5,7 +5,7 @@
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OcrPlayerResultDto } from 'src/ocr/dto/ocr-read-response.dto';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PartidaJogadorScore } from '../partidas/entities/partida-jogador-score.entity';
 import { PartidaJogador } from '../partidas/entities/partida-jogador.entity';
 import { Partidas } from '../partidas/entities/partidas.entity';
@@ -32,6 +32,7 @@ export class TorneiosService {
 
   async lancarPartida(
     idTorneio: number,
+    numeroRodada: number,
     payload: OcrPlayerResultDto[],
   ): Promise<void> {
     const torneio = await this.torneioRepository.findOne({
@@ -51,9 +52,17 @@ export class TorneiosService {
     await this.dataSource.transaction(async (manager) => {
       const partida = manager.create(Partidas, {
         torneio: { idTorneio: idTorneio },
+        dataPartida: new Date(),
       });
 
       const partidaSalva = await manager.save(Partidas, partida);
+
+      await this.validarJogadoresJaLancados(
+        manager,
+        idTorneio,
+        numeroRodada,
+        payload,
+      );
 
       for (const player of payload) {
         if (!player.scores?.length) {
@@ -90,6 +99,7 @@ export class TorneiosService {
         const partidaJogador = manager.create(PartidaJogador, {
           idPartida: partidaSalva.idPartida,
           idJogador: player.playerId,
+          numeroRodada: numeroRodada,
           total,
         });
 
@@ -109,5 +119,51 @@ export class TorneiosService {
         await manager.save(PartidaJogadorScore, scores);
       }
     });
+  }
+
+  private async validarJogadoresJaLancados(
+    manager: EntityManager,
+    idTorneio: number,
+    numeroRodada: number,
+    payload: OcrPlayerResultDto[],
+  ): Promise<void> {
+    const idsJogadores = payload.map((player) => player.playerId);
+
+    const registrosExistentes = await manager
+      .getRepository(PartidaJogador)
+      .createQueryBuilder('pj')
+      .innerJoin('pj.partida', 'partida')
+      .where('partida.id_torneio = :idTorneio', { idTorneio })
+      .andWhere('pj.numero_rodada = :numeroRodada', { numeroRodada })
+      .andWhere('pj.id_jogador IN (:...idsJogadores)', { idsJogadores })
+      .getMany();
+
+    if (!registrosExistentes.length) return;
+
+    console.log('Registros existentes encontrados:', registrosExistentes);
+
+    const idsExistentes = new Set(
+      registrosExistentes.map((registro) => registro.idJogador),
+    );
+
+    const jogadoresDuplicados = payload
+      .filter((player) => idsExistentes.has(player.playerId))
+      .map((player) => player.playerName);
+
+    throw new BadRequestException(
+      `Os seguintes jogadores já possuem resultados lançados na rodada ${numeroRodada}: ${jogadoresDuplicados.join(', ')}.`,
+    );
+  }
+
+  async removerSorteio(id: number): Promise<void> {
+    const torneio = await this.torneioRepository.findOne({
+      where: { idTorneio: id },
+    });
+
+    if (!torneio) {
+      throw new NotFoundException('Torneio não encontrado.');
+    }
+
+    await this.torneioRepository.remove(torneio);
   }
 }

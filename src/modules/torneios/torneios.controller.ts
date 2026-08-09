@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { OcrPlayerResultDto } from 'src/ocr/dto/ocr-read-response.dto';
 import { CriarTorneioDto } from './dto/criar-torneio.dto';
 import { TorneiosService } from './torneios.service';
@@ -18,11 +18,21 @@ export class TorneiosController {
     return await this.torneiosService.buscarTorneios();
   }
 
-  @Post('lancar-partida/:idTorneio')
+  @Post('lancar-partida/:idTorneio/:numeroRodada')
   async lancarPartida(
     @Param('idTorneio') idTorneio: number,
+    @Param('numeroRodada') numeroRodada: number,
     @Body() _partida: OcrPlayerResultDto[],
   ) {
-    return await this.torneiosService.lancarPartida(idTorneio, _partida);
+    return await this.torneiosService.lancarPartida(
+      idTorneio,
+      numeroRodada,
+      _partida,
+    );
+  }
+
+  @Delete(':id')
+  async removerSorteio(@Param('id') id: number) {
+    return await this.torneiosService.removerSorteio(id);
   }
 }

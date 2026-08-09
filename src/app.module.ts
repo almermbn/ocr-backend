@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './modules/auth/auth.module';
 import { JogadoresModule } from './modules/jogadores/jogadores.module';
 import { ParticipantesTorneioModule } from './modules/participantes-torneio/participantes-torneio.module';
 import { PartidasModule } from './modules/partidas/partidas.module';
@@ -22,7 +23,7 @@ const databaseImports =
             password: configService.get<string>('DB_PASSWORD', 'postgres'),
             database: configService.get<string>('DB_NAME', 'ocr_backend'),
             autoLoadEntities: true,
-            synchronize: false,
+            synchronize: true,
             schema: configService.get<string>('DB_SCHEMA', 'frametracker'),
           }),
         }),
@@ -34,6 +35,7 @@ const databaseImports =
       isGlobal: true,
     }),
     ...databaseImports,
+    AuthModule,
     OcrModule,
     OpenaiModule,
     JogadoresModule,

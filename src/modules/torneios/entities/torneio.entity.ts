@@ -27,7 +27,9 @@ export class Torneio {
   @Column('timestamptz', { name: 'data_limite_inscricao' })
   dataLimiteInscricao: Date;
 
-  @OneToMany(() => Partidas, (partida) => partida.torneio)
+  @OneToMany(() => Partidas, (partida) => partida.torneio, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn([{ name: 'id_torneio', referencedColumnName: 'idTorneio' }])
   partidas: Partidas[];
 }
