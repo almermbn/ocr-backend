@@ -16,4 +16,7 @@ export class CriarTorneioDto {
 
   @IsDateString()
   dataLimiteInscricao: string;
+
+  @IsNumber()
+  idModalidadeTorneio: number;
 }

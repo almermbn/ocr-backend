@@ -6,10 +6,13 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { OcrPlayerResultDto } from 'src/ocr/dto/ocr-read-response.dto';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { UsuarioPayload } from '../auth/dto/usuario-payload.dto';
+import { ParticipantesTorneio } from '../participantes-torneio/entities/participantes-torneio.entity';
 import { PartidaJogadorScore } from '../partidas/entities/partida-jogador-score.entity';
 import { PartidaJogador } from '../partidas/entities/partida-jogador.entity';
 import { Partidas } from '../partidas/entities/partidas.entity';
 import { CriarTorneioDto } from './dto/criar-torneio.dto';
+import { ModalidadeTorneio } from './entities/modalidade-torneio.entity';
 import { Torneio } from './entities/torneio.entity';
 
 @Injectable()
@@ -22,12 +25,20 @@ export class TorneiosService {
 
   async criarTorneio(dto: CriarTorneioDto): Promise<Torneio[]> {
     const novoTorneio = this.torneioRepository.create(dto);
+    novoTorneio.modalidade = {
+      idModalidadeTorneio: dto.idModalidadeTorneio,
+    } as ModalidadeTorneio;
     await this.torneioRepository.save(novoTorneio);
     return await this.torneioRepository.find();
   }
 
   async buscarTorneios(): Promise<Torneio[]> {
-    return await this.torneioRepository.find();
+    return await this.torneioRepository.find({
+      relations: {
+        participantes: { jogador: true },
+        modalidade: true,
+      },
+    });
   }
 
   async lancarPartida(
@@ -165,5 +176,83 @@ export class TorneiosService {
     }
 
     await this.torneioRepository.remove(torneio);
+  }
+
+  async inscreverJogador(
+    idTorneio: number,
+    jogador: UsuarioPayload,
+    idsJogadores?: number[],
+  ): Promise<void> {
+    const torneio = await this.torneioRepository.findOne({
+      where: { idTorneio },
+      relations: { modalidade: true },
+    });
+
+    if (!torneio || !jogador) {
+      throw new NotFoundException('Torneio ou jogador não encontrado.');
+    }
+
+    // Quantidade esperada de jogadores por modalidade
+    const jogadoresPorModalidade: Record<string, number> = {
+      INDIVIDUAL: 1,
+      DUPLAS: 2,
+      TERCETOS: 3,
+      EQUIPES: 4,
+    };
+
+    const modalidade = torneio.modalidade?.modalidade?.toUpperCase() ?? '';
+    const quantidadeEsperada = jogadoresPorModalidade[modalidade] ?? 1;
+
+    // Se não vier lista (fluxo individual), usa o próprio usuário logado
+    const jogadores =
+      idsJogadores && idsJogadores.length > 0
+        ? idsJogadores
+        : [jogador.idJogador];
+
+    if (jogadores.length !== quantidadeEsperada) {
+      throw new BadRequestException(
+        `A modalidade ${torneio.modalidade?.modalidade ?? 'INDIVIDUAL'} exige exatamente ${quantidadeEsperada} jogador(es).`,
+      );
+    }
+
+    const idsUnicos = new Set(jogadores);
+    if (idsUnicos.size !== jogadores.length) {
+      throw new BadRequestException(
+        'Não é possível inscrever o mesmo jogador mais de uma vez.',
+      );
+    }
+
+    // Verificar se algum jogador já está inscrito
+    const jaInscritos = await this.dataSource.manager.find(
+      ParticipantesTorneio,
+      {
+        where: jogadores.map((idJogador) => ({
+          torneio: { idTorneio },
+          jogador: { idJogador },
+        })),
+        relations: { jogador: true },
+      },
+    );
+
+    if (jaInscritos.length > 0) {
+      const nomes = jaInscritos
+        .map((participante) => participante.jogador?.nome)
+        .filter(Boolean)
+        .join(', ');
+      throw new BadRequestException(
+        `Jogador(es) já inscrito(s) no torneio: ${nomes}.`,
+      );
+    }
+
+    // Inscrever todos os jogadores em uma transação
+    await this.dataSource.transaction(async (manager) => {
+      const participantes = jogadores.map((idJogador) =>
+        manager.create(ParticipantesTorneio, {
+          torneio: { idTorneio },
+          jogador: { idJogador },
+        }),
+      );
+      await manager.save(ParticipantesTorneio, participantes);
+    });
   }
 }
